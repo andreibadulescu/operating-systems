@@ -72,7 +72,9 @@ locals {
       hard_drive_interface = "ide"
       iso_interface        = "ide"
       nic_type             = "82540EM"
-      extra_vboxmanage     = []
+      extra_vboxmanage = [
+        ["modifyvm", "{{ .Name }}", "--usb", "off"],
+      ]
     }
     arm64 = {
       iso_url              = "https://cdimage.ubuntu.com/ubuntu/releases/resolute/release/ubuntu-26.04.1-desktop-arm64.iso"
@@ -87,8 +89,11 @@ locals {
       # disk interface, but the ARMv8 chipset has no slot for one and the VM
       # fails to power on ("candidate positions for piix3ide exhausted" in
       # VBox.log). Nothing is attached to it, so remove it before first boot.
+      # There is no PS/2 either: the keyboard has to be on USB, or Packer
+      # cannot type the boot command ("Failed to send a scancode").
       extra_vboxmanage = [
         ["storagectl", "{{ .Name }}", "--name", "IDE", "--remove"],
+        ["modifyvm", "{{ .Name }}", "--usb-xhci", "on", "--keyboard", "usb", "--mouse", "usbtablet"],
       ]
     }
   }
@@ -140,7 +145,6 @@ source "virtualbox-iso" "ubuntu-26-04" {
 
   vboxmanage = concat([
     ["modifyvm", "{{ .Name }}", "--boot1", "disk"],
-    ["modifyvm", "{{ .Name }}", "--usb", "off"],
     ["modifyvm", "{{ .Name }}", "--vram", "128"],
     ["modifyvm", "{{ .Name }}", "--nic1", "nat"],
     ["modifyvm", "{{ .Name }}", "--nictype1", local.p.nic_type],
