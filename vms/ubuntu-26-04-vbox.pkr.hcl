@@ -72,6 +72,7 @@ locals {
       hard_drive_interface = "ide"
       iso_interface        = "ide"
       nic_type             = "82540EM"
+      extra_vboxmanage     = []
     }
     arm64 = {
       iso_url              = "https://cdimage.ubuntu.com/ubuntu/releases/resolute/release/ubuntu-26.04.1-desktop-arm64.iso"
@@ -82,6 +83,13 @@ locals {
       hard_drive_interface = "virtio"
       iso_interface        = "virtio"
       nic_type             = "virtio"
+      # The VirtualBox plugin adds an IDE controller to every VM, whatever the
+      # disk interface, but the ARMv8 chipset has no slot for one and the VM
+      # fails to power on ("candidate positions for piix3ide exhausted" in
+      # VBox.log). Nothing is attached to it, so remove it before first boot.
+      extra_vboxmanage = [
+        ["storagectl", "{{ .Name }}", "--name", "IDE", "--remove"],
+      ]
     }
   }
   p = local.platform[var.arch]
@@ -130,13 +138,13 @@ source "virtualbox-iso" "ubuntu-26-04" {
   headless             = var.headless
   output_directory     = "output-${var.arch}"
 
-  vboxmanage = [
+  vboxmanage = concat([
     ["modifyvm", "{{ .Name }}", "--boot1", "disk"],
     ["modifyvm", "{{ .Name }}", "--usb", "off"],
     ["modifyvm", "{{ .Name }}", "--vram", "128"],
     ["modifyvm", "{{ .Name }}", "--nic1", "nat"],
     ["modifyvm", "{{ .Name }}", "--nictype1", local.p.nic_type],
-  ]
+  ], local.p.extra_vboxmanage)
 
   boot_command = [
     "c<wait>",
